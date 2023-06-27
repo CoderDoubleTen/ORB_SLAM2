@@ -1,6 +1,5 @@
 /**
 * This file is part of ORB-SLAM2.
-* This file is based on the file orb.cpp from the OpenCV library (see BSD license below).
 *
 * Copyright (C) 2014-2016 Raúl Mur-Artal <raulmur at unizar dot es> (University of Zaragoza)
 * For more information see <https://github.com/raulmur/ORB_SLAM2>
@@ -18,53 +17,55 @@
 * You should have received a copy of the GNU General Public License
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
-/**
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2009, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*
-*/
 
+/*
+ *--------------------------------------------------------------------------------------------------
+ * DS-SLAM: A Semantic Visual SLAM towards Dynamic Environments
+　*　Author(s):
+ * Chao Yu, Zuxin Liu, Xinjun Liu, Fugui Xie, Yi Yang, Qi Wei, Fei Qiao qiaofei@mail.tsinghua.edu.cn
+ * Created by Yu Chao@2018.12.03
+ * --------------------------------------------------------------------------------------------------
+ * DS-SLAM is a optimized SLAM system based on the famous ORB-SLAM2. If you haven't learn ORB_SLAM2 code, 
+ * you'd better to be familiar with ORB_SLAM2 project first. Compared to ORB_SLAM2, 
+ * we add anther two threads including semantic segmentation thread and densemap creation thread. 
+ * You should pay attention to Frame.cc, ORBmatcher.cc, Pointcloudmapping.cc and Segment.cc.
+ * 
+ *　@article{murORB2,
+ *　title={{ORB-SLAM2}: an Open-Source {SLAM} System for Monocular, Stereo and {RGB-D} Cameras},
+　*　author={Mur-Artal, Ra\'ul and Tard\'os, Juan D.},
+　* journal={IEEE Transactions on Robotics},
+　*　volume={33},
+　* number={5},
+　* pages={1255--1262},
+　* doi = {10.1109/TRO.2017.2705103},
+　* year={2017}
+ *　}
+ * --------------------------------------------------------------------------------------------------
+ * Copyright (C) 2018, iVip Lab @ EE, THU (https://ivip-tsinghua.github.io/iViP-Homepage/) and 
+ * Advanced Mechanism and Roboticized Equipment Lab. All rights reserved.
+ *
+ * Licensed under the GPLv3 License;
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://github.com/ivipsourcecode/DS-SLAM/blob/master/LICENSE
+ *--------------------------------------------------------------------------------------------------
+ */
 
+#include <chrono>
+#include <iostream>
+
+#include "Camera.h"
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+
 #include <vector>
 
 #include "ORBextractor.h"
 
-
-using namespace cv;
 using namespace std;
+using namespace cv;
 
 namespace ORB_SLAM2
 {
@@ -73,8 +74,7 @@ const int PATCH_SIZE = 31;
 const int HALF_PATCH_SIZE = 15;
 const int EDGE_THRESHOLD = 19;
 
-
-static float IC_Angle(const Mat& image, Point2f pt,  const vector<int> & u_max)
+static float IC_Angle(const cv::Mat& image, cv::Point2f pt,  const vector<int> & u_max)
 {
     int m_01 = 0, m_10 = 0;
 
@@ -103,10 +103,9 @@ static float IC_Angle(const Mat& image, Point2f pt,  const vector<int> & u_max)
     return fastAtan2((float)m_01, (float)m_10);
 }
 
-
 const float factorPI = (float)(CV_PI/180.f);
-static void computeOrbDescriptor(const KeyPoint& kpt,
-                                 const Mat& img, const Point* pattern,
+static void computeOrbDescriptor(const cv::KeyPoint& kpt,
+                                 const cv::Mat& img, const cv::Point* pattern,
                                  uchar* desc)
 {
     float angle = (float)kpt.angle*factorPI;
@@ -446,11 +445,11 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     mnFeaturesPerLevel[nlevels-1] = std::max(nfeatures - sumFeatures, 0);
 
     const int npoints = 512;
-    const Point* pattern0 = (const Point*)bit_pattern_31_;
+    const cv::Point* pattern0 = (const cv::Point*)bit_pattern_31_;
     std::copy(pattern0, pattern0 + npoints, std::back_inserter(pattern));
 
-    //This is for orientation
-    // pre-compute the end of a row in a circular patch
+    // This is for orientation
+    // Pre-compute the end of a row in a circular patch
     umax.resize(HALF_PATCH_SIZE + 1);
 
     int v, v0, vmax = cvFloor(HALF_PATCH_SIZE * sqrt(2.f) / 2 + 1);
@@ -469,9 +468,9 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     }
 }
 
-static void computeOrientation(const Mat& image, vector<KeyPoint>& keypoints, const vector<int>& umax)
+static void computeOrientation(const cv::Mat& image, vector<cv::KeyPoint>& keypoints, const vector<int>& umax)
 {
-    for (vector<KeyPoint>::iterator keypoint = keypoints.begin(),
+    for (vector<cv::KeyPoint>::iterator keypoint = keypoints.begin(),
          keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
     {
         keypoint->angle = IC_Angle(image, keypoint->pt, umax);
@@ -483,7 +482,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNo
     const int halfX = ceil(static_cast<float>(UR.x-UL.x)/2);
     const int halfY = ceil(static_cast<float>(BR.y-UL.y)/2);
 
-    //Define boundaries of childs
+    // Define boundaries of childs
     n1.UL = UL;
     n1.UR = cv::Point2i(UL.x+halfX,UL.y);
     n1.BL = cv::Point2i(UL.x,UL.y+halfY);
@@ -508,7 +507,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNo
     n4.BR = BR;
     n4.vKeys.reserve(vKeys.size());
 
-    //Associate points to childs
+    // Associate points to childs
     for(size_t i=0;i<vKeys.size();i++)
     {
         const cv::KeyPoint &kp = vKeys[i];
@@ -562,7 +561,7 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
         vpIniNodes[i] = &lNodes.back();
     }
 
-    //Associate points to childs
+    // Associate points to childs
     for(size_t i=0;i<vToDistributeKeys.size();i++)
     {
         const cv::KeyPoint &kp = vToDistributeKeys[i];
@@ -762,7 +761,7 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
     return vResultKeys;
 }
 
-void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoints)
+void ORBextractor::ComputeKeyPointsOctTree(vector<vector<cv::KeyPoint> >& allKeypoints)
 {
     allKeypoints.resize(nlevels);
 
@@ -828,7 +827,7 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
             }
         }
 
-        vector<KeyPoint> & keypoints = allKeypoints[level];
+        vector<cv::KeyPoint> & keypoints = allKeypoints[level];
         keypoints.reserve(nfeatures);
 
         keypoints = DistributeOctTree(vToDistributeKeys, minBorderX, maxBorderX,
@@ -847,12 +846,12 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
         }
     }
 
-    // compute orientations
+    // Compute orientations
     for (int level = 0; level < nlevels; ++level)
         computeOrientation(mvImagePyramid[level], allKeypoints[level], umax);
 }
 
-void ORBextractor::ComputeKeyPointsOld(std::vector<std::vector<KeyPoint> > &allKeypoints)
+void ORBextractor::ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> > &allKeypoints)
 {
     allKeypoints.resize(nlevels);
 
@@ -878,7 +877,7 @@ void ORBextractor::ComputeKeyPointsOld(std::vector<std::vector<KeyPoint> > &allK
         const int nCells = levelRows*levelCols;
         const int nfeaturesCell = ceil((float)nDesiredFeatures/nCells);
 
-        vector<vector<vector<KeyPoint> > > cellKeyPoints(levelRows, vector<vector<KeyPoint> >(levelCols));
+        vector<vector<vector<cv::KeyPoint> > > cellKeyPoints(levelRows, vector<vector<cv::KeyPoint> >(levelCols));
 
         vector<vector<int> > nToRetain(levelRows,vector<int>(levelCols,0));
         vector<vector<int> > nTotal(levelRows,vector<int>(levelCols,0));
@@ -928,7 +927,7 @@ void ORBextractor::ComputeKeyPointsOld(std::vector<std::vector<KeyPoint> > &allK
                 }
 
 
-                Mat cellImage = mvImagePyramid[level].rowRange(iniY,iniY+hY).colRange(iniX,iniX+hX);
+                cv::Mat cellImage = mvImagePyramid[level].rowRange(iniY,iniY+hY).colRange(iniX,iniX+hX);
 
                 cellKeyPoints[i][j].reserve(nfeaturesCell*5);
 
@@ -961,9 +960,7 @@ void ORBextractor::ComputeKeyPointsOld(std::vector<std::vector<KeyPoint> > &allK
             }
         }
 
-
         // Retain by score
-
         while(nToDistribute>0 && nNoMore<nCells)
         {
             int nNewFeaturesCell = nfeaturesCell + ceil((float)nToDistribute/(nCells-nNoMore));
@@ -992,7 +989,7 @@ void ORBextractor::ComputeKeyPointsOld(std::vector<std::vector<KeyPoint> > &allK
             }
         }
 
-        vector<KeyPoint> & keypoints = allKeypoints[level];
+        vector<cv::KeyPoint> & keypoints = allKeypoints[level];
         keypoints.reserve(nDesiredFeatures*2);
 
         const int scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
@@ -1002,7 +999,7 @@ void ORBextractor::ComputeKeyPointsOld(std::vector<std::vector<KeyPoint> > &allK
         {
             for(int j=0; j<levelCols; j++)
             {
-                vector<KeyPoint> &keysCell = cellKeyPoints[i][j];
+                vector<cv::KeyPoint> &keysCell = cellKeyPoints[i][j];
                 KeyPointsFilter::retainBest(keysCell,nToRetain[i][j]);
                 if((int)keysCell.size()>nToRetain[i][j])
                     keysCell.resize(nToRetain[i][j]);
@@ -1026,41 +1023,139 @@ void ORBextractor::ComputeKeyPointsOld(std::vector<std::vector<KeyPoint> > &allK
         }
     }
 
-    // and compute orientations
+    // Compute orientations
     for (int level = 0; level < nlevels; ++level)
         computeOrientation(mvImagePyramid[level], allKeypoints[level], umax);
 }
 
-static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
-                               const vector<Point>& pattern)
+static void computeDescriptors(const cv::Mat& image, vector<cv::KeyPoint>& keypoints, cv::Mat& descriptors,
+                               const vector<cv::Point>& pattern)
 {
-    descriptors = Mat::zeros((int)keypoints.size(), 32, CV_8UC1);
+    descriptors = cv::Mat::zeros((int)keypoints.size(), 32, CV_8UC1);
 
     for (size_t i = 0; i < keypoints.size(); i++)
         computeOrbDescriptor(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
 }
+void ORBextractor::DeleteOneRowOfMat(cv::Mat& object, int num)
+{
+    if (num<0 || num>=object.rows)
+    {
+        cout<<" wrong row number! "<<endl;
+    }
+    else
+    {
+        if (num == object.rows-1)
+        {
+            object.pop_back();
+        }
+        else
+        {
+            for (int i=num+1;i<object.rows;i++)
+            {
+                object.row(i-1) = object.row(i) + cv::Scalar(0,0,0,0);
+            }
+            object.pop_back();
+        }
+    }
+}
 
-void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPoint>& _keypoints,
-                      OutputArray _descriptors)
+int ORBextractor::CheckMovingKeyPoints( const cv::Mat &imGray, const cv::Mat &imS,std::vector<std::vector<cv::KeyPoint>>& mvKeysT,std::vector<cv::Point2f> T)
+{
+   
+    float scale;
+    int flag_orb_mov =0;
+   
+    // Make further judgment
+    //检查剔除区域（T_M集中每个像素点及周围15像素）
+    // 在T_M 离群点的 15*15 的像素块内发现 人，那么flag_orb_mov 设置为1.
+	for (int i = 0; i < T.size(); i++)
+	{
+	    for(int m = -15; m < 15; m++)
+	    {
+	        for(int n = -15; n < 15; n++)
+	        {
+                //  确定 mx ,my 的范围不能出界
+	            int my = ((int)T[i].y + n) ;
+	            int mx = ((int)T[i].x + m) ;
+		        if( ((int)T[i].y + n) > (Camera::height -1) ) my = (Camera::height - 1) ;
+	        	if( ((int)T[i].y + n) < 1 ) my = 0;
+		        if( ((int)T[i].x + m) > (Camera::width -1) ) mx = (Camera::width - 1) ;
+		        if( ((int)T[i].x + m) < 1 ) mx = 0;
+                // The label of peopel is 1
+		        if((int)imS.ptr<uchar>(my)[mx] == PEOPLE_LABLE)
+		        {
+		            flag_orb_mov=1;
+		               break;
+		        }
+	        }
+	            if(flag_orb_mov==1)
+	                 break;
+	     }
+	         if(flag_orb_mov==1)
+	            break;
+	}
+
+	// Moving
+	if(flag_orb_mov==1)
+	{
+	    for (int level = 0; level < nlevels; ++level)// 提取每一层的金字塔
+            {
+                vector<cv::KeyPoint>& mkeypoints = mvKeysT[level];
+		        int nkeypointsLevel = (int)mkeypoints.size();
+		        if(nkeypointsLevel==0)
+		                continue;
+		        if (level != 0)
+			        scale = mvScaleFactor[level]; 
+		        else
+			        scale =1; 
+                vector<cv::KeyPoint>::iterator keypoint = mkeypoints.begin();
+                // 标签带有先验动态，则在特征点金字塔内删除该特征点
+                while(keypoint != mkeypoints.end())
+	            {
+		             cv::Point2f search_coord = keypoint->pt * scale;
+		             // Search in the semantic image
+		             if(search_coord.x >= (Camera::width -1)) search_coord.x=(Camera::width -1);
+		             if(search_coord.y >= (Camera::height -1)) search_coord.y=(Camera::height -1) ;
+		             //  用来访问灰度图像的单个像素。对于灰度图像，每个像素只存储一个值。
+                     int label_coord =(int)imS.ptr<uchar>((int)search_coord.y)[(int)search_coord.x];
+		             //发现这个特征点的坐标 落在 人 身上，则把这个特征点删除
+                     if(label_coord == PEOPLE_LABLE)
+		             {
+			            keypoint=mkeypoints.erase(keypoint);// 将这个特征点删除掉		       
+		             }
+		             else
+		             {
+			            keypoint++;
+		             }
+	             }
+	          }
+      }
+      return flag_orb_mov;
+}
+void ORBextractor::operator()(cv::InputArray _image, cv::InputArray _mask, vector<vector<cv::KeyPoint>>& _keypoints
+                      )
 { 
     if(_image.empty())
         return;
 
-    Mat image = _image.getMat();
+    cv::Mat image = _image.getMat();
     assert(image.type() == CV_8UC1 );
 
     // Pre-compute the scale pyramid
     ComputePyramid(image);
+    ComputeKeyPointsOctTree(_keypoints);
 
-    vector < vector<KeyPoint> > allKeypoints;
-    ComputeKeyPointsOctTree(allKeypoints);
-    //ComputeKeyPointsOld(allKeypoints);
+}
 
-    Mat descriptors;
+void ORBextractor::ProcessDesp(cv::InputArray _image, cv::InputArray _mask, vector<vector<cv::KeyPoint>>& _allKeypoints,
+                      vector<cv::KeyPoint>& _mKeypoints,cv::OutputArray _descriptors)
+{
+  
+    cv:: Mat descriptors;
 
     int nkeypoints = 0;
     for (int level = 0; level < nlevels; ++level)
-        nkeypoints += (int)allKeypoints[level].size();
+        nkeypoints += (int)_allKeypoints[level].size();
     if( nkeypoints == 0 )
         _descriptors.release();
     else
@@ -1069,24 +1164,24 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
         descriptors = _descriptors.getMat();
     }
 
-    _keypoints.clear();
-    _keypoints.reserve(nkeypoints);
+    _mKeypoints.clear();
+    _mKeypoints.reserve(nkeypoints);
 
     int offset = 0;
     for (int level = 0; level < nlevels; ++level)
     {
-        vector<KeyPoint>& keypoints = allKeypoints[level];
+        vector<cv::KeyPoint>& keypoints = _allKeypoints[level];
         int nkeypointsLevel = (int)keypoints.size();
 
         if(nkeypointsLevel==0)
             continue;
 
-        // preprocess the resized image
-        Mat workingMat = mvImagePyramid[level].clone();
-        GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
+        // Preprocess the resized image
+        cv::Mat workingMat = mvImagePyramid[level].clone();
+        GaussianBlur(workingMat, workingMat, cv::Size(7, 7), 2, 2, cv::BORDER_REFLECT_101);
 
         // Compute the descriptors
-        Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
+        cv::Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
         computeDescriptors(workingMat, keypoints, desc, pattern);
 
         offset += nkeypointsLevel;
@@ -1094,41 +1189,39 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
         // Scale keypoint coordinates
         if (level != 0)
         {
-            float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
-            for (vector<KeyPoint>::iterator keypoint = keypoints.begin(),
+            float scale = mvScaleFactor[level];
+            for (vector<cv::KeyPoint>::iterator keypoint = keypoints.begin(),
                  keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint)
-                keypoint->pt *= scale;
+                 keypoint->pt *= scale;
         }
         // And add the keypoints to the output
-        _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
+        _mKeypoints.insert(_mKeypoints.end(), keypoints.begin(), keypoints.end());
     }
 }
-
 void ORBextractor::ComputePyramid(cv::Mat image)
 {
     for (int level = 0; level < nlevels; ++level)
     {
         float scale = mvInvScaleFactor[level];
-        Size sz(cvRound((float)image.cols*scale), cvRound((float)image.rows*scale));
-        Size wholeSize(sz.width + EDGE_THRESHOLD*2, sz.height + EDGE_THRESHOLD*2);
-        Mat temp(wholeSize, image.type()), masktemp;
-        mvImagePyramid[level] = temp(Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
+        cv::Size sz(cvRound((float)image.cols*scale), cvRound((float)image.rows*scale));
+        cv::Size wholeSize(sz.width + EDGE_THRESHOLD*2, sz.height + EDGE_THRESHOLD*2);
+        cv::Mat temp(wholeSize, image.type()), masktemp;
+        mvImagePyramid[level] = temp(cv::Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
 
         // Compute the resized image
         if( level != 0 )
         {
-            resize(mvImagePyramid[level-1], mvImagePyramid[level], sz, 0, 0, INTER_LINEAR);
+            cv::resize(mvImagePyramid[level-1], mvImagePyramid[level], sz, 0, 0, INTER_LINEAR);
 
-            copyMakeBorder(mvImagePyramid[level], temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
-                           BORDER_REFLECT_101+BORDER_ISOLATED);            
+            cv::copyMakeBorder(mvImagePyramid[level], temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                           cv::BORDER_REFLECT_101+cv::BORDER_ISOLATED);            
         }
         else
         {
-            copyMakeBorder(image, temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
-                           BORDER_REFLECT_101);            
+            cv::copyMakeBorder(image, temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                           cv::BORDER_REFLECT_101);            
         }
     }
 
 }
-
 } //namespace ORB_SLAM
