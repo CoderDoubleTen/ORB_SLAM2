@@ -18,18 +18,18 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
-
 #ifndef ORBMATCHER_H
 #define ORBMATCHER_H
 
 #include<vector>
-#include<opencv2/core/core.hpp>
-#include<opencv2/features2d/features2d.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include"MapPoint.h"
 #include"KeyFrame.h"
 #include"Frame.h"
-
 
 namespace ORB_SLAM2
 {
@@ -83,14 +83,11 @@ public:
     int Fuse(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint);
 
 public:
-
     static const int TH_LOW;
     static const int TH_HIGH;
     static const int HISTO_LENGTH;
 
-
 protected:
-
     bool CheckDistEpipolarLine(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const cv::Mat &F12, const KeyFrame *pKF);
 
     float RadiusByViewingCos(const float &viewCos);

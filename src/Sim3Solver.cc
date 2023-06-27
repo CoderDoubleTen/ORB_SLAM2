@@ -24,9 +24,12 @@
 #include <vector>
 #include <cmath>
 #include <opencv2/core/core.hpp>
+#include <opencv2/calib3d.hpp>
+
 
 #include "KeyFrame.h"
 #include "ORBmatcher.h"
+#include "Camera.h"
 
 #include "Thirdparty/DBoW2/DUtils/Random.h"
 
@@ -102,8 +105,8 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
         }
     }
 
-    mK1 = pKF1->mK;
-    mK2 = pKF2->mK;
+    mK1 = Camera::K;
+    mK2 = Camera::K;
 
     FromCameraToImage(mvX3Dc1,mvP1im1,mK1);
     FromCameraToImage(mvX3Dc2,mvP2im2,mK2);
@@ -117,7 +120,7 @@ void Sim3Solver::SetRansacParameters(double probability, int minInliers, int max
     mRansacMinInliers = minInliers;
     mRansacMaxIts = maxIterations;    
 
-    N = mvpMapPoints1.size(); // number of correspondences
+    N = mvpMapPoints1.size(); 
 
     mvbInliersi.resize(N);
 
@@ -172,7 +175,7 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
             mvX3Dc1[idx].copyTo(P3Dc1i.col(i));
             mvX3Dc2[idx].copyTo(P3Dc2i.col(i));
 
-            vAvailableIndices[randi] = vAvailableIndices.back();
+            vAvailableIndices[idx] = vAvailableIndices.back();
             vAvailableIndices.pop_back();
         }
 
@@ -227,7 +230,6 @@ void Sim3Solver::ComputeSim3(cv::Mat &P1, cv::Mat &P2)
 {
     // Custom implementation of:
     // Horn 1987, Closed-form solution of absolute orientataion using unit quaternions
-
     // Step 1: Centroid and relative coordinates
 
     cv::Mat Pr1(P1.size(),P1.type()); // Relative coordinates to centroid (set 1)
@@ -239,11 +241,9 @@ void Sim3Solver::ComputeSim3(cv::Mat &P1, cv::Mat &P2)
     ComputeCentroid(P2,Pr2,O2);
 
     // Step 2: Compute M matrix
-
     cv::Mat M = Pr2*Pr1.t();
 
     // Step 3: Compute N matrix
-
     double N11, N12, N13, N14, N22, N23, N24, N33, N34, N44;
 
     cv::Mat N(4,4,P1.type());
@@ -266,29 +266,24 @@ void Sim3Solver::ComputeSim3(cv::Mat &P1, cv::Mat &P2)
 
 
     // Step 4: Eigenvector of the highest eigenvalue
-
     cv::Mat eval, evec;
 
-    cv::eigen(N,eval,evec); //evec[0] is the quaternion of the desired rotation
-
+    cv::eigen(N,eval,evec); 
     cv::Mat vec(1,3,evec.type());
-    (evec.row(0).colRange(1,4)).copyTo(vec); //extract imaginary part of the quaternion (sin*axis)
-
+    (evec.row(0).colRange(1,4)).copyTo(vec); 
     // Rotation angle. sin is the norm of the imaginary part, cos is the real part
     double ang=atan2(norm(vec),evec.at<float>(0,0));
-
-    vec = 2*ang*vec/norm(vec); //Angle-axis representation. quaternion angle is the half
+    //Angle-axis representation. quaternion angle is the half
+    vec = 2*ang*vec/norm(vec); 
 
     mR12i.create(3,3,P1.type());
-
-    cv::Rodrigues(vec,mR12i); // computes the rotation matrix from angle-axis
+    // computes the rotation matrix from angle-axis
+    cv::Rodrigues(vec,mR12i); 
 
     // Step 5: Rotate set 2
-
     cv::Mat P3 = mR12i*Pr2;
 
     // Step 6: Scale
-
     if(!mbFixScale)
     {
         double nom = Pr1.dot(P3);

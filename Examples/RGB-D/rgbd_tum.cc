@@ -16,7 +16,7 @@
 *
 * You should have received a copy of the GNU General Public License
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
-*/
+**/
 
 
 #include<iostream>
@@ -27,7 +27,7 @@
 #include<opencv2/core/core.hpp>
 
 #include<System.h>
-
+#include <unistd.h>
 using namespace std;
 
 void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageFilenamesRGB,
@@ -35,17 +35,13 @@ void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageF
 
 int main(int argc, char **argv)
 {
-    if(argc != 5)
-    {
-        cerr << endl << "Usage: ./rgbd_tum path_to_vocabulary path_to_settings path_to_sequence path_to_association" << endl;
-        return 1;
-    }
 
     // Retrieve paths to images
     vector<string> vstrImageFilenamesRGB;
     vector<string> vstrImageFilenamesD;
     vector<double> vTimestamps;
-    string strAssociationFilename = string(argv[4]);
+    //string strAssociationFilename = string(argv[4]);
+    string strAssociationFilename = "date/rgbd_dataset_freiburg3_walking_xyz/associate.txt";//string(argv[4])  ql:RGB和深度图的关联文件
     LoadImages(strAssociationFilename, vstrImageFilenamesRGB, vstrImageFilenamesD, vTimestamps);
 
     // Check consistency in the number of images and depthmaps
@@ -62,7 +58,15 @@ int main(int argc, char **argv)
     }
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::RGBD,true);
+    
+    string voc_path="Vocabulary/ORBvoc.txt";
+    string yaml_path="Examples/RGB-D/TUM3.yaml";
+    string img_path="date/rgbd_dataset_freiburg3_walking_xyz";
+    string model_path="model_gpu.pt";
+    string pascal_png="pascal.png";
+    ORB_SLAM2::PangolinViewer *viewer;//PangolinViewer为画图线程，主要将ORB-SLAM的FrameDrawer与MapDrawer整合在了一起
+    viewer = new ORB_SLAM2::PangolinViewer(yaml_path);//实例化
+    ORB_SLAM2::System SLAM(voc_path,yaml_path,model_path,pascal_png,ORB_SLAM2::System::RGBD,viewer);
 
     // Vector for tracking time statistics
     vector<float> vTimesTrack;
@@ -77,14 +81,14 @@ int main(int argc, char **argv)
     for(int ni=0; ni<nImages; ni++)
     {
         // Read image and depthmap from file
-        imRGB = cv::imread(string(argv[3])+"/"+vstrImageFilenamesRGB[ni],CV_LOAD_IMAGE_UNCHANGED);
-        imD = cv::imread(string(argv[3])+"/"+vstrImageFilenamesD[ni],CV_LOAD_IMAGE_UNCHANGED);
+        imRGB = cv::imread(img_path+"/"+vstrImageFilenamesRGB[ni],CV_LOAD_IMAGE_UNCHANGED);
+        imD = cv::imread(img_path+"/"+vstrImageFilenamesD[ni],CV_LOAD_IMAGE_UNCHANGED);
         double tframe = vTimestamps[ni];
 
         if(imRGB.empty())
         {
             cerr << endl << "Failed to load image at: "
-                 << string(argv[3]) << "/" << vstrImageFilenamesRGB[ni] << endl;
+                 << string(img_path) << "/" << vstrImageFilenamesRGB[ni] << endl;
             return 1;
         }
 
@@ -133,8 +137,8 @@ int main(int argc, char **argv)
     cout << "mean tracking time: " << totaltime/nImages << endl;
 
     // Save camera trajectory
-    SLAM.SaveTrajectoryTUM("CameraTrajectory.txt");
-    SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");   
+    SLAM.SaveTrajectoryTUM("resulsts/CameraTrajectory.txt");
+    SLAM.SaveKeyFrameTrajectoryTUM("resulsts/KeyFrameTrajectory.txt");   
 
     return 0;
 }

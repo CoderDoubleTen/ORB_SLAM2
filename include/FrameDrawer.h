@@ -24,9 +24,10 @@
 #include "Tracking.h"
 #include "MapPoint.h"
 #include "Map.h"
-
-#include<opencv2/core/core.hpp>
-#include<opencv2/features2d/features2d.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include<mutex>
 
@@ -40,10 +41,12 @@ class Viewer;
 class FrameDrawer
 {
 public:
-    FrameDrawer(Map* pMap);
+    FrameDrawer();
+    //FrameDrawer(Map* pMap);
 
     // Update info from the last processed frame.
     void Update(Tracking *pTracker);
+	void Register(Map* pMap);
 
     // Draw last processed frame.
     cv::Mat DrawFrame();

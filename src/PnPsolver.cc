@@ -51,10 +51,15 @@
 #include <iostream>
 
 #include "PnPsolver.h"
+#include "Camera.h"
 
 #include <vector>
 #include <cmath>
 #include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
 #include "Thirdparty/DBoW2/DUtils/Random.h"
 #include <algorithm>
 
@@ -101,10 +106,10 @@ PnPsolver::PnPsolver(const Frame &F, const vector<MapPoint*> &vpMapPointMatches)
     }
 
     // Set camera calibration parameters
-    fu = F.fx;
-    fv = F.fy;
-    uc = F.cx;
-    vc = F.cy;
+    fu = Camera::fx;
+    fv = Camera::fy;
+    uc = Camera::cx;
+    vc = Camera::cy;
 
     SetRansacParameters();
 }
@@ -196,7 +201,7 @@ cv::Mat PnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlie
 
             add_correspondence(mvP3Dw[idx].x,mvP3Dw[idx].y,mvP3Dw[idx].z,mvP2D[idx].x,mvP2D[idx].y);
 
-            vAvailableIndices[randi] = vAvailableIndices.back();
+            vAvailableIndices[idx] = vAvailableIndices.back();
             vAvailableIndices.pop_back();
         }
 

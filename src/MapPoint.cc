@@ -29,10 +29,24 @@ namespace ORB_SLAM2
 long unsigned int MapPoint::nNextId=0;
 mutex MapPoint::mGlobalMutex;
 
+MapPoint::MapPoint(const cv::Mat &Pos, int FirstKFid, int FirstFrame, Map* pMap):
+    mnFirstKFid(FirstKFid), mnFirstFrame(FirstFrame), nObs(0), mnTrackReferenceForFrame(0),
+    mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
+    mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(static_cast<KeyFrame*>(NULL)), mnVisible(1), mnFound(1), mbBad(false),
+    mpReplaced(static_cast<MapPoint*>(NULL)), mfMinDistance(0), mfMaxDistance(0), mpMap(pMap)
+{
+    Pos.copyTo(mWorldPos);
+    mNormalVector = cv::Mat::zeros(3,1,CV_32F);
+
+    // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
+    unique_lock<mutex> lock(mpMap->mMutexPointCreation);
+    mnId=nNextId++;
+}
+
 MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
     mnFirstKFid(pRefKF->mnId), mnFirstFrame(pRefKF->mnFrameId), nObs(0), mnTrackReferenceForFrame(0),
     mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
-    mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false),
+    mnCorrectedReference(0), mnBAGlobalForKF(0),mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false),
     mpReplaced(static_cast<MapPoint*>(NULL)), mfMinDistance(0), mfMaxDistance(0), mpMap(pMap)
 {
     Pos.copyTo(mWorldPos);
@@ -91,8 +105,12 @@ cv::Mat MapPoint::GetNormal()
 
 KeyFrame* MapPoint::GetReferenceKeyFrame()
 {
-    unique_lock<mutex> lock(mMutexFeatures);
-    return mpRefKF;
+     unique_lock<mutex> lock(mMutexFeatures);
+     return mpRefKF;
+}
+
+void MapPoint::SetReferenceKeyFrame(KeyFrame* pRefKF) {
+  mpRefKF = pRefKF;
 }
 
 void MapPoint::AddObservation(KeyFrame* pKF, size_t idx)
@@ -302,7 +320,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
 
     {
         unique_lock<mutex> lock(mMutexFeatures);
-        mDescriptor = vDescriptors[BestIdx].clone();
+        mDescriptor = vDescriptors[BestIdx].clone();       
     }
 }
 
@@ -354,7 +372,7 @@ void MapPoint::UpdateNormalAndDepth()
         cv::Mat normali = mWorldPos - Owi;
         normal = normal + normali/cv::norm(normali);
         n++;
-    }
+    } 
 
     cv::Mat PC = Pos - pRefKF->GetCameraCenter();
     const float dist = cv::norm(PC);
@@ -382,40 +400,15 @@ float MapPoint::GetMaxDistanceInvariance()
     return 1.2f*mfMaxDistance;
 }
 
-int MapPoint::PredictScale(const float &currentDist, KeyFrame* pKF)
+int MapPoint::PredictScale(const float &currentDist, const float &logScaleFactor)
 {
     float ratio;
     {
-        unique_lock<mutex> lock(mMutexPos);
+        unique_lock<mutex> lock3(mMutexPos);
         ratio = mfMaxDistance/currentDist;
     }
 
-    int nScale = ceil(log(ratio)/pKF->mfLogScaleFactor);
-    if(nScale<0)
-        nScale = 0;
-    else if(nScale>=pKF->mnScaleLevels)
-        nScale = pKF->mnScaleLevels-1;
-
-    return nScale;
+    return ceil(log(ratio)/logScaleFactor);
 }
-
-int MapPoint::PredictScale(const float &currentDist, Frame* pF)
-{
-    float ratio;
-    {
-        unique_lock<mutex> lock(mMutexPos);
-        ratio = mfMaxDistance/currentDist;
-    }
-
-    int nScale = ceil(log(ratio)/pF->mfLogScaleFactor);
-    if(nScale<0)
-        nScale = 0;
-    else if(nScale>=pF->mnScaleLevels)
-        nScale = pF->mnScaleLevels-1;
-
-    return nScale;
-}
-
-
 
 } //namespace ORB_SLAM

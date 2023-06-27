@@ -31,7 +31,6 @@
 
 #include <mutex>
 
-
 namespace ORB_SLAM2
 {
 
@@ -63,7 +62,7 @@ public:
     void UpdateConnections();
     void UpdateBestCovisibles();
     std::set<KeyFrame *> GetConnectedKeyFrames();
-    std::vector<KeyFrame* > GetVectorCovisibleKeyFrames();
+    std::vector<KeyFrame*> GetVectorCovisibleKeyFrames();
     std::vector<KeyFrame*> GetBestCovisibilityKeyFrames(const int &N);
     std::vector<KeyFrame*> GetCovisiblesByWeight(const int &w);
     int GetWeight(KeyFrame* pKF);
@@ -116,7 +115,6 @@ public:
         return pKF1->mnId<pKF2->mnId;
     }
 
-
     // The following variables are accesed from only 1 thread or never change (no mutex needed).
 public:
 
@@ -154,7 +152,7 @@ public:
     long unsigned int mnBAGlobalForKF;
 
     // Calibration parameters
-    const float fx, fy, cx, cy, invfx, invfy, mbf, mb, mThDepth;
+	const float mThDepth;
 
     // Number of KeyPoints
     const int N;
@@ -166,7 +164,7 @@ public:
     const std::vector<float> mvDepth; // negative value for monocular points
     const cv::Mat mDescriptors;
 
-    //BoW
+    // BoW
     DBoW2::BowVector mBowVec;
     DBoW2::FeatureVector mFeatVec;
 
@@ -186,8 +184,9 @@ public:
     const int mnMinY;
     const int mnMaxX;
     const int mnMaxY;
-    const cv::Mat mK;
-
+   
+    // Moving flg
+    int flag_kf_mov;
 
     // The following variables need to be accessed trough a mutex to be thread safe.
 protected:

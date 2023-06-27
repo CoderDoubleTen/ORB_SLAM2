@@ -22,20 +22,21 @@
 #ifndef SIM3SOLVER_H
 #define SIM3SOLVER_H
 
-#include <opencv2/opencv.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+
 #include <vector>
-
 #include "KeyFrame.h"
-
-
 
 namespace ORB_SLAM2
 {
 
 class Sim3Solver
 {
-public:
 
+public:
     Sim3Solver(KeyFrame* pKF1, KeyFrame* pKF2, const std::vector<MapPoint*> &vpMatched12, const bool bFixScale = true);
 
     void SetRansacParameters(double probability = 0.99, int minInliers = 6 , int maxIterations = 300);
@@ -48,9 +49,7 @@ public:
     cv::Mat GetEstimatedTranslation();
     float GetEstimatedScale();
 
-
 protected:
-
     void ComputeCentroid(cv::Mat &P, cv::Mat &Pr, cv::Mat &C);
 
     void ComputeSim3(cv::Mat &P1, cv::Mat &P2);
@@ -62,7 +61,6 @@ protected:
 
 
 protected:
-
     // KeyFrames and matches
     KeyFrame* mpKF1;
     KeyFrame* mpKF2;

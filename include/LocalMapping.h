@@ -22,13 +22,12 @@
 #define LOCALMAPPING_H
 
 #include "KeyFrame.h"
-#include "Map.h"
 #include "LoopClosing.h"
 #include "Tracking.h"
 #include "KeyFrameDatabase.h"
 
 #include <mutex>
-
+#include "Map.h"
 
 namespace ORB_SLAM2
 {
@@ -36,6 +35,7 @@ namespace ORB_SLAM2
 class Tracking;
 class LoopClosing;
 class Map;
+class MapPoint;
 
 class LocalMapping
 {
@@ -67,13 +67,13 @@ public:
     void RequestFinish();
     bool isFinished();
 
-    int KeyframesInQueue(){
+    int KeyframesInQueue()
+    {
         unique_lock<std::mutex> lock(mMutexNewKFs);
         return mlNewKeyFrames.size();
     }
 
 protected:
-
     bool CheckNewKeyFrames();
     void ProcessNewKeyFrame();
     void CreateNewMapPoints();
@@ -113,7 +113,6 @@ protected:
     std::mutex mMutexNewKFs;
 
     bool mbAbortBA;
-
     bool mbStopped;
     bool mbStopRequested;
     bool mbNotStop;

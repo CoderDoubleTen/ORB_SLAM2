@@ -19,28 +19,23 @@
 */
 
 #include "LoopClosing.h"
-
 #include "Sim3Solver.h"
-
 #include "Converter.h"
-
 #include "Optimizer.h"
-
 #include "ORBmatcher.h"
-
 #include<mutex>
 #include<thread>
-
 
 namespace ORB_SLAM2
 {
 
-LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, const bool bFixScale):
+    LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, const bool bFixScale):
     mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
-    mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpMatchedKF(NULL), mLastLoopKFid(0), mbRunningGBA(false), mbFinishedGBA(true),
-    mbStopGBA(false), mpThreadGBA(NULL), mbFixScale(bFixScale), mnFullBAIdx(0)
+    mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mLastLoopKFid(0), mbRunningGBA(false), mbFinishedGBA(true),
+    mbStopGBA(false), mbFixScale(bFixScale)
 {
     mnCovisibilityConsistencyTh = 3;
+    mpMatchedKF = NULL;
 }
 
 void LoopClosing::SetTracker(Tracking *pTracker)
@@ -66,13 +61,13 @@ void LoopClosing::Run()
             // Detect loop candidates and check covisibility consistency
             if(DetectLoop())
             {
-               // Compute similarity transformation [sR|t]
-               // In the stereo/RGBD case s=1
-               if(ComputeSim3())
-               {
-                   // Perform loop fusion and pose graph optimization
-                   CorrectLoop();
-               }
+                // Compute similarity transformation [sR|t]
+                // In the stereo/RGBD case s=1
+                if(ComputeSim3())
+                {
+                    // Perform loop fusion and pose graph optimization
+                    CorrectLoop();
+                }
             }
         }       
 
@@ -110,7 +105,7 @@ bool LoopClosing::DetectLoop()
         mpCurrentKF->SetNotErase();
     }
 
-    //If the map contains less than 10 KF or less than 10 KF have passed from last loop detection
+    // If the map contains less than 10 KF or less than 10 KF have passed from last loop detection
     if(mpCurrentKF->mnId<mLastLoopKFid+10)
     {
         mpKeyFrameDB->add(mpCurrentKF);
@@ -139,7 +134,6 @@ bool LoopClosing::DetectLoop()
 
     // Query the database imposing the minimum score
     vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectLoopCandidates(mpCurrentKF, minScore);
-
     // If there are no loop candidates, just add new keyframe and return false
     if(vpCandidateKFs.empty())
     {
@@ -189,12 +183,12 @@ bool LoopClosing::DetectLoop()
                 {
                     ConsistentGroup cg = make_pair(spCandidateGroup,nCurrentConsistency);
                     vCurrentConsistentGroups.push_back(cg);
-                    vbConsistentGroup[iG]=true; //this avoid to include the same group more than once
+                    vbConsistentGroup[iG]=true; // Avoid to include the same group more than once
                 }
                 if(nCurrentConsistency>=mnCovisibilityConsistencyTh && !bEnoughConsistent)
                 {
                     mvpEnoughConsistentCandidates.push_back(pCandidateKF);
-                    bEnoughConsistent=true; //this avoid to insert the same candidate more than once
+                    bEnoughConsistent=true;    // Avoid to insert the same candidate more than once
                 }
             }
         }
@@ -231,7 +225,6 @@ bool LoopClosing::DetectLoop()
 bool LoopClosing::ComputeSim3()
 {
     // For each consistent loop candidate we try to compute a Sim3
-
     const int nInitialCandidates = mvpEnoughConsistentCandidates.size();
 
     // We compute first ORB matches for each candidate
@@ -247,7 +240,7 @@ bool LoopClosing::ComputeSim3()
     vector<bool> vbDiscarded;
     vbDiscarded.resize(nInitialCandidates);
 
-    int nCandidates=0; //candidates with enough matches
+    int nCandidates=0; // candidates with enough matches
 
     for(int i=0; i<nInitialCandidates; i++)
     {
@@ -261,7 +254,6 @@ bool LoopClosing::ComputeSim3()
             vbDiscarded[i] = true;
             continue;
         }
-
         int nmatches = matcher.SearchByBoW(mpCurrentKF,pKF,vvpMapPointMatches[i]);
 
         if(nmatches<20)
@@ -344,7 +336,7 @@ bool LoopClosing::ComputeSim3()
     if(!bMatch)
     {
         for(int i=0; i<nInitialCandidates; i++)
-             mvpEnoughConsistentCandidates[i]->SetErase();
+            mvpEnoughConsistentCandidates[i]->SetErase();
         mpCurrentKF->SetErase();
         return false;
     }
@@ -387,13 +379,15 @@ bool LoopClosing::ComputeSim3()
         for(int i=0; i<nInitialCandidates; i++)
             if(mvpEnoughConsistentCandidates[i]!=mpMatchedKF)
                 mvpEnoughConsistentCandidates[i]->SetErase();
-        return true;
+			    cout<<"loop detected frame id ="<<mpCurrentKF->mnFrameId<<endl;
+	            cout<<"loop detected end frame id ="<<mpMatchedKF->mnFrameId<<endl;
+            return true;
     }
     else
     {
         for(int i=0; i<nInitialCandidates; i++)
             mvpEnoughConsistentCandidates[i]->SetErase();
-        mpCurrentKF->SetErase();
+            mpCurrentKF->SetErase();
         return false;
     }
 
@@ -410,16 +404,13 @@ void LoopClosing::CorrectLoop()
     // If a Global Bundle Adjustment is running, abort it
     if(isRunningGBA())
     {
-        unique_lock<mutex> lock(mMutexGBA);
         mbStopGBA = true;
 
-        mnFullBAIdx++;
+        while(!isFinishedGBA())
+            usleep(5000);
 
-        if(mpThreadGBA)
-        {
-            mpThreadGBA->detach();
-            delete mpThreadGBA;
-        }
+        mpThreadGBA->join();
+        delete mpThreadGBA;
     }
 
     // Wait until Local Mapping has effectively stopped
@@ -446,7 +437,7 @@ void LoopClosing::CorrectLoop()
 
         for(vector<KeyFrame*>::iterator vit=mvpCurrentConnectedKFs.begin(), vend=mvpCurrentConnectedKFs.end(); vit!=vend; vit++)
         {
-            KeyFrame* pKFi = *vit;
+        KeyFrame* pKFi = *vit;
 
             cv::Mat Tiw = pKFi->GetPose();
 
@@ -541,7 +532,6 @@ void LoopClosing::CorrectLoop()
     // Fuse duplications.
     SearchAndFuse(CorrectedSim3);
 
-
     // After the MapPoint fusion, new links in the covisibility graph will appear attaching both sides of the loop
     map<KeyFrame*, set<KeyFrame*> > LoopConnections;
 
@@ -566,8 +556,6 @@ void LoopClosing::CorrectLoop()
     // Optimize graph
     Optimizer::OptimizeEssentialGraph(mpMap, mpMatchedKF, mpCurrentKF, NonCorrectedSim3, CorrectedSim3, LoopConnections, mbFixScale);
 
-    mpMap->InformNewBigChange();
-
     // Add loop edge
     mpMatchedKF->AddLoopEdge(mpCurrentKF);
     mpCurrentKF->AddLoopEdge(mpMatchedKF);
@@ -580,6 +568,8 @@ void LoopClosing::CorrectLoop()
 
     // Loop closed. Release Local Mapping.
     mpLocalMapper->Release();    
+
+    cout << "Loop Closed!" << endl;
 
     mLastLoopKFid = mpCurrentKF->mnId;   
 }
@@ -646,8 +636,7 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
 {
     cout << "Starting Global Bundle Adjustment" << endl;
 
-    int idx =  mnFullBAIdx;
-    Optimizer::GlobalBundleAdjustemnt(mpMap,10,&mbStopGBA,nLoopKF,false);
+    Optimizer::GlobalBundleAdjustemnt(mpMap,20,&mbStopGBA,nLoopKF,false);
 
     // Update all MapPoints and KeyFrames
     // Local Mapping was active during BA, that means that there might be new keyframes
@@ -655,8 +644,7 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
     // We need to propagate the correction through the spanning tree
     {
         unique_lock<mutex> lock(mMutexGBA);
-        if(idx!=mnFullBAIdx)
-            return;
+
 
         if(!mbStopGBA)
         {
@@ -687,7 +675,7 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
                     if(pChild->mnBAGlobalForKF!=nLoopKF)
                     {
                         cv::Mat Tchildc = pChild->GetPose()*Twc;
-                        pChild->mTcwGBA = Tchildc*pKF->mTcwGBA;//*Tcorc*pKF->mTcwGBA;
+                        pChild->mTcwGBA = Tchildc*pKF->mTcwGBA;
                         pChild->mnBAGlobalForKF=nLoopKF;
 
                     }
@@ -734,9 +722,7 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
 
                     pMP->SetWorldPos(Rwc*Xc+twc);
                 }
-            }            
-
-            mpMap->InformNewBigChange();
+            }
 
             mpLocalMapper->Release();
 

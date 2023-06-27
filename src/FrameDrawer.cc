@@ -23,13 +23,15 @@
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include<mutex>
 
 namespace ORB_SLAM2
 {
 
-FrameDrawer::FrameDrawer(Map* pMap):mpMap(pMap)
+FrameDrawer::FrameDrawer()
 {
     mState=Tracking::SYSTEM_NOT_READY;
     mIm = cv::Mat(480,640,CV_8UC3, cv::Scalar(0,0,0));
@@ -38,13 +40,13 @@ FrameDrawer::FrameDrawer(Map* pMap):mpMap(pMap)
 cv::Mat FrameDrawer::DrawFrame()
 {
     cv::Mat im;
-    vector<cv::KeyPoint> vIniKeys; // Initialization: KeyPoints in reference frame
-    vector<int> vMatches; // Initialization: correspondeces with reference keypoints
-    vector<cv::KeyPoint> vCurrentKeys; // KeyPoints in current frame
-    vector<bool> vbVO, vbMap; // Tracked MapPoints in current frame
-    int state; // Tracking state
+    vector<cv::KeyPoint> vIniKeys;        // Initialization: KeyPoints in reference frame
+    vector<int> vMatches;                 // Initialization: correspondeces with reference keypoints
+    vector<cv::KeyPoint> vCurrentKeys;    // KeyPoints in current frame
+    vector<bool> vbVO, vbMap;             // Tracked MapPoints in current frame
+    int state;                            // Tracking state
 
-    //Copy variables within scoped mutex
+    // Copy variables within scoped mutex
     {
         unique_lock<mutex> lock(mMutex);
         state=mState;
@@ -69,30 +71,29 @@ cv::Mat FrameDrawer::DrawFrame()
         {
             vCurrentKeys = mvCurrentKeys;
         }
-    } // destroy scoped mutex -> release mutex
+    }
 
-    if(im.channels()<3) //this should be always true
+    if(im.channels()<3) 
         cvtColor(im,im,CV_GRAY2BGR);
 
     //Draw
-    if(state==Tracking::NOT_INITIALIZED) //INITIALIZING
+    if(state==Tracking::NOT_INITIALIZED) 
     {
         for(unsigned int i=0; i<vMatches.size(); i++)
         {
             if(vMatches[i]>=0)
             {
                 cv::line(im,vIniKeys[i].pt,vCurrentKeys[vMatches[i]].pt,
-                        cv::Scalar(0,255,0));
+                cv::Scalar(0,255,0));
             }
         }        
     }
-    else if(state==Tracking::OK) //TRACKING
+    else if(state==Tracking::OK) 
     {
         mnTracked=0;
         mnTrackedVO=0;
         const float r = 5;
-        const int n = vCurrentKeys.size();
-        for(int i=0;i<n;i++)
+        for(int i=0;i<N;i++)
         {
             if(vbVO[i] || vbMap[i])
             {
@@ -109,7 +110,8 @@ cv::Mat FrameDrawer::DrawFrame()
                     cv::circle(im,vCurrentKeys[i].pt,2,cv::Scalar(0,255,0),-1);
                     mnTracked++;
                 }
-                else // This is match to a "visual odometry" MapPoint created in the last frame
+                else 
+                // This is match to a "visual odometry" MapPoint created in the last frame
                 {
                     cv::rectangle(im,pt1,pt2,cv::Scalar(255,0,0));
                     cv::circle(im,vCurrentKeys[i].pt,2,cv::Scalar(255,0,0),-1);
@@ -189,7 +191,7 @@ void FrameDrawer::Update(Tracking *pTracker)
             {
                 if(!pTracker->mCurrentFrame.mvbOutlier[i])
                 {
-                    if(pMP->Observations()>0)
+                    if(pMP->Observations()>7)
                         mvbMap[i]=true;
                     else
                         mvbVO[i]=true;
@@ -198,6 +200,10 @@ void FrameDrawer::Update(Tracking *pTracker)
         }
     }
     mState=static_cast<int>(pTracker->mLastProcessedState);
+}
+
+void FrameDrawer::Register(Map* pMap) {
+  mpMap = pMap;
 }
 
 } //namespace ORB_SLAM

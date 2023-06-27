@@ -19,11 +19,14 @@
 */
 
 #include "ORBmatcher.h"
+#include "Camera.h"
 
 #include<limits.h>
 
-#include<opencv2/core/core.hpp>
-#include<opencv2/features2d/features2d.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 #include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
 
@@ -235,7 +238,7 @@ int ORBmatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPoin
 
                         if(mbCheckOrientation)
                         {
-                            float rot = kp.angle-F.mvKeys[bestIdxF].angle;
+		                    float rot = kp.angle-F.mvKeys[bestIdxF].angle;
                             if(rot<0.0)
                                 rot+=360.0f;
                             int bin = round(rot*factor);
@@ -290,10 +293,10 @@ int ORBmatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPoin
 int ORBmatcher::SearchByProjection(KeyFrame* pKF, cv::Mat Scw, const vector<MapPoint*> &vpPoints, vector<MapPoint*> &vpMatched, int th)
 {
     // Get Calibration Parameters for later projection
-    const float &fx = pKF->fx;
-    const float &fy = pKF->fy;
-    const float &cx = pKF->cx;
-    const float &cy = pKF->cy;
+    const float &fx = Camera::fx;
+    const float &fy = Camera::fy;
+    const float &cx = Camera::cx;
+    const float &cy = Camera::cy;
 
     // Decompose Scw
     cv::Mat sRcw = Scw.rowRange(0,3).colRange(0,3);
@@ -354,7 +357,7 @@ int ORBmatcher::SearchByProjection(KeyFrame* pKF, cv::Mat Scw, const vector<MapP
         if(PO.dot(Pn)<0.5*dist)
             continue;
 
-        int nPredictedLevel = pMP->PredictScale(dist,pKF);
+        int nPredictedLevel = pMP->PredictScale(dist,pKF->mfLogScaleFactor);
 
         // Search in a radius
         const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
@@ -475,7 +478,7 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
                     float rot = F1.mvKeysUn[i1].angle-F2.mvKeysUn[bestIdx2].angle;
                     if(rot<0.0)
                         rot+=360.0f;
-                    int bin = round(rot*factor);
+                    int bin = round(rot/(360*factor));
                     if(bin==HISTO_LENGTH)
                         bin=0;
                     assert(bin>=0 && bin<HISTO_LENGTH);
@@ -511,7 +514,7 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
 
     }
 
-    //Update prev matched
+    // Update prev matched
     for(size_t i1=0, iend1=vnMatches12.size(); i1<iend1; i1++)
         if(vnMatches12[i1]>=0)
             vbPrevMatched[i1]=F2.mvKeysUn[vnMatches12[i1]].pt;
@@ -660,14 +663,14 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
     const DBoW2::FeatureVector &vFeatVec1 = pKF1->mFeatVec;
     const DBoW2::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
 
-    //Compute epipole in second image
+    // Compute epipole in second image
     cv::Mat Cw = pKF1->GetCameraCenter();
     cv::Mat R2w = pKF2->GetRotation();
     cv::Mat t2w = pKF2->GetTranslation();
     cv::Mat C2 = R2w*Cw+t2w;
     const float invz = 1.0f/C2.at<float>(2);
-    const float ex =pKF2->fx*C2.at<float>(0)*invz+pKF2->cx;
-    const float ey =pKF2->fy*C2.at<float>(1)*invz+pKF2->cy;
+    const float ex =Camera::fx*C2.at<float>(0)*invz+Camera::cx;
+    const float ey =Camera::fy*C2.at<float>(1)*invz+Camera::cy;
 
     // Find matches between not tracked keypoints
     // Matching speed-up by ORB Vocabulary
@@ -827,11 +830,11 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
     cv::Mat Rcw = pKF->GetRotation();
     cv::Mat tcw = pKF->GetTranslation();
 
-    const float &fx = pKF->fx;
-    const float &fy = pKF->fy;
-    const float &cx = pKF->cx;
-    const float &cy = pKF->cy;
-    const float &bf = pKF->mbf;
+    const float &fx = Camera::fx;
+    const float &fy = Camera::fy;
+    const float &cx = Camera::cx;
+    const float &cy = Camera::cy;
+    const float &bf = Camera::bf;
 
     cv::Mat Ow = pKF->GetCameraCenter();
 
@@ -884,7 +887,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
         if(PO.dot(Pn)<0.5*dist3D)
             continue;
 
-        int nPredictedLevel = pMP->PredictScale(dist3D,pKF);
+        int nPredictedLevel = pMP->PredictScale(dist3D,pKF->mfLogScaleFactor);
 
         // Search in a radius
         const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
@@ -977,10 +980,10 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
 int ORBmatcher::Fuse(KeyFrame *pKF, cv::Mat Scw, const vector<MapPoint *> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint)
 {
     // Get Calibration Parameters for later projection
-    const float &fx = pKF->fx;
-    const float &fy = pKF->fy;
-    const float &cx = pKF->cx;
-    const float &cy = pKF->cy;
+    const float &fx = Camera::fx;
+    const float &fy = Camera::fy;
+    const float &cx = Camera::cx;
+    const float &cy = Camera::cy;
 
     // Decompose Scw
     cv::Mat sRcw = Scw.rowRange(0,3).colRange(0,3);
@@ -1043,7 +1046,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, cv::Mat Scw, const vector<MapPoint *> &vpPoi
             continue;
 
         // Compute predicted scale level
-        const int nPredictedLevel = pMP->PredictScale(dist3D,pKF);
+        const int nPredictedLevel = pMP->PredictScale(dist3D,pKF->mfLogScaleFactor);
 
         // Search in a radius
         const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
@@ -1102,20 +1105,20 @@ int ORBmatcher::Fuse(KeyFrame *pKF, cv::Mat Scw, const vector<MapPoint *> &vpPoi
 int ORBmatcher::SearchBySim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint*> &vpMatches12,
                              const float &s12, const cv::Mat &R12, const cv::Mat &t12, const float th)
 {
-    const float &fx = pKF1->fx;
-    const float &fy = pKF1->fy;
-    const float &cx = pKF1->cx;
-    const float &cy = pKF1->cy;
+    const float &fx = Camera::fx;
+    const float &fy = Camera::fy;
+    const float &cx = Camera::cx;
+    const float &cy = Camera::cy;
 
     // Camera 1 from world
     cv::Mat R1w = pKF1->GetRotation();
     cv::Mat t1w = pKF1->GetTranslation();
 
-    //Camera 2 from world
+    // Camera 2 from world
     cv::Mat R2w = pKF2->GetRotation();
     cv::Mat t2w = pKF2->GetTranslation();
 
-    //Transformation between cameras
+    // Transformation between cameras
     cv::Mat sR12 = s12*R12;
     cv::Mat sR21 = (1.0/s12)*R12.t();
     cv::Mat t21 = -sR21*t12;
@@ -1183,7 +1186,7 @@ int ORBmatcher::SearchBySim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint*> &
             continue;
 
         // Compute predicted octave
-        const int nPredictedLevel = pMP->PredictScale(dist3D,pKF2);
+        const int nPredictedLevel = pMP->PredictScale(dist3D,pKF2->mfLogScaleFactor);
 
         // Search in a radius
         const float radius = th*pKF2->mvScaleFactors[nPredictedLevel];
@@ -1263,7 +1266,7 @@ int ORBmatcher::SearchBySim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint*> &
             continue;
 
         // Compute predicted octave
-        const int nPredictedLevel = pMP->PredictScale(dist3D,pKF1);
+        const int nPredictedLevel = pMP->PredictScale(dist3D,pKF1->mfLogScaleFactor);
 
         // Search in a radius of 2.5*sigma(ScaleLevel)
         const float radius = th*pKF1->mvScaleFactors[nPredictedLevel];
@@ -1345,8 +1348,8 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
 
     const cv::Mat tlc = Rlw*twc+tlw;
 
-    const bool bForward = tlc.at<float>(2)>CurrentFrame.mb && !bMono;
-    const bool bBackward = -tlc.at<float>(2)>CurrentFrame.mb && !bMono;
+    const bool bForward = tlc.at<float>(2)>Camera::b && !bMono;
+    const bool bBackward = -tlc.at<float>(2)>Camera::b && !bMono;
 
     for(int i=0; i<LastFrame.N; i++)
     {
@@ -1367,8 +1370,8 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
                 if(invzc<0)
                     continue;
 
-                float u = CurrentFrame.fx*xc*invzc+CurrentFrame.cx;
-                float v = CurrentFrame.fy*yc*invzc+CurrentFrame.cy;
+                float u = Camera::fx*xc*invzc+Camera::cx;
+                float v = Camera::fy*yc*invzc+Camera::cy;
 
                 if(u<CurrentFrame.mnMinX || u>CurrentFrame.mnMaxX)
                     continue;
@@ -1406,8 +1409,8 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
 
                     if(CurrentFrame.mvuRight[i2]>0)
                     {
-                        const float ur = u - CurrentFrame.mbf*invzc;
-                        const float er = fabs(ur - CurrentFrame.mvuRight[i2]);
+					    const float ur = u - Camera::bf*invzc;
+					    const float er = fabs(ur - CurrentFrame.mvuRight[i2]);
                         if(er>radius)
                             continue;
                     }
@@ -1444,7 +1447,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
         }
     }
 
-    //Apply rotation consistency
+    // Apply rotation consistency
     if(mbCheckOrientation)
     {
         int ind1=-1;
@@ -1493,7 +1496,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set
         {
             if(!pMP->isBad() && !sAlreadyFound.count(pMP))
             {
-                //Project
+                // Project
                 cv::Mat x3Dw = pMP->GetWorldPos();
                 cv::Mat x3Dc = Rcw*x3Dw+tcw;
 
@@ -1501,8 +1504,8 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set
                 const float yc = x3Dc.at<float>(1);
                 const float invzc = 1.0/x3Dc.at<float>(2);
 
-                const float u = CurrentFrame.fx*xc*invzc+CurrentFrame.cx;
-                const float v = CurrentFrame.fy*yc*invzc+CurrentFrame.cy;
+                const float u = Camera::fx*xc*invzc+Camera::cx;
+                const float v = Camera::fy*yc*invzc+Camera::cy;
 
                 if(u<CurrentFrame.mnMinX || u>CurrentFrame.mnMaxX)
                     continue;
@@ -1520,7 +1523,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, KeyFrame *pKF, const set
                 if(dist3D<minDistance || dist3D>maxDistance)
                     continue;
 
-                int nPredictedLevel = pMP->PredictScale(dist3D,&CurrentFrame);
+                int nPredictedLevel = pMP->PredictScale(dist3D,CurrentFrame.mfLogScaleFactor);
 
                 // Search in a window
                 const float radius = th*CurrentFrame.mvScaleFactors[nPredictedLevel];

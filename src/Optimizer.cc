@@ -31,6 +31,7 @@
 #include<Eigen/StdVector>
 
 #include "Converter.h"
+#include "Camera.h"
 
 #include<mutex>
 
@@ -101,7 +102,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
        const map<KeyFrame*,size_t> observations = pMP->GetObservations();
 
         int nEdges = 0;
-        //SET EDGES
+        // Set edge
         for(map<KeyFrame*,size_t>::const_iterator mit=observations.begin(); mit!=observations.end(); mit++)
         {
 
@@ -133,10 +134,10 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
                     rk->setDelta(thHuber2D);
                 }
 
-                e->fx = pKF->fx;
-                e->fy = pKF->fy;
-                e->cx = pKF->cx;
-                e->cy = pKF->cy;
+                e->fx = Camera::fx;
+                e->fy = Camera::fy;
+                e->cx = Camera::cx;
+                e->cy = Camera::cy;
 
                 optimizer.addEdge(e);
             }
@@ -162,11 +163,11 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
                     rk->setDelta(thHuber3D);
                 }
 
-                e->fx = pKF->fx;
-                e->fy = pKF->fy;
-                e->cx = pKF->cx;
-                e->cy = pKF->cy;
-                e->bf = pKF->mbf;
+                e->fx = Camera::fx;
+                e->fy = Camera::fy;
+                e->cx = Camera::cx;
+                e->cy = Camera::cy;
+                e->bf = Camera::bf;
 
                 optimizer.addEdge(e);
             }
@@ -187,9 +188,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     optimizer.initializeOptimization();
     optimizer.optimize(nIterations);
 
-    // Recover optimized data
-
-    //Keyframes
+    // Keyframes
     for(size_t i=0; i<vpKFs.size(); i++)
     {
         KeyFrame* pKF = vpKFs[i];
@@ -209,7 +208,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
         }
     }
 
-    //Points
+    // Points
     for(size_t i=0; i<vpMP.size(); i++)
     {
         if(vbNotIncludedMP[i])
@@ -273,7 +272,6 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     const float deltaMono = sqrt(5.991);
     const float deltaStereo = sqrt(7.815);
 
-
     {
     unique_lock<mutex> lock(MapPoint::mGlobalMutex);
 
@@ -303,10 +301,10 @@ int Optimizer::PoseOptimization(Frame *pFrame)
                 e->setRobustKernel(rk);
                 rk->setDelta(deltaMono);
 
-                e->fx = pFrame->fx;
-                e->fy = pFrame->fy;
-                e->cx = pFrame->cx;
-                e->cy = pFrame->cy;
+                e->fx = Camera::fx;
+                e->fy = Camera::fy;
+                e->cx = Camera::cx;
+                e->cy = Camera::cy;
                 cv::Mat Xw = pMP->GetWorldPos();
                 e->Xw[0] = Xw.at<float>(0);
                 e->Xw[1] = Xw.at<float>(1);
@@ -322,7 +320,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
                 nInitialCorrespondences++;
                 pFrame->mvbOutlier[i] = false;
 
-                //SET EDGE
+                // Set edge
                 Eigen::Matrix<double,3,1> obs;
                 const cv::KeyPoint &kpUn = pFrame->mvKeysUn[i];
                 const float &kp_ur = pFrame->mvuRight[i];
@@ -340,11 +338,11 @@ int Optimizer::PoseOptimization(Frame *pFrame)
                 e->setRobustKernel(rk);
                 rk->setDelta(deltaStereo);
 
-                e->fx = pFrame->fx;
-                e->fy = pFrame->fy;
-                e->cx = pFrame->cx;
-                e->cy = pFrame->cy;
-                e->bf = pFrame->mbf;
+                e->fx = Camera::fx;
+                e->fy = Camera::fy;
+                e->cx = Camera::cx;
+                e->cy = Camera::cy;
+                e->bf = Camera::bf;
                 cv::Mat Xw = pMP->GetWorldPos();
                 e->Xw[0] = Xw.at<float>(0);
                 e->Xw[1] = Xw.at<float>(1);
@@ -359,7 +357,6 @@ int Optimizer::PoseOptimization(Frame *pFrame)
 
     }
     }
-
 
     if(nInitialCorrespondences<3)
         return 0;
@@ -608,10 +605,10 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
                     e->setRobustKernel(rk);
                     rk->setDelta(thHuberMono);
 
-                    e->fx = pKFi->fx;
-                    e->fy = pKFi->fy;
-                    e->cx = pKFi->cx;
-                    e->cy = pKFi->cy;
+                    e->fx = Camera::fx;
+                    e->fy = Camera::fy;
+                    e->cx = Camera::cx;
+                    e->cy = Camera::cy;
 
                     optimizer.addEdge(e);
                     vpEdgesMono.push_back(e);
@@ -637,11 +634,11 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
                     e->setRobustKernel(rk);
                     rk->setDelta(thHuberStereo);
 
-                    e->fx = pKFi->fx;
-                    e->fy = pKFi->fy;
-                    e->cx = pKFi->cx;
-                    e->cy = pKFi->cy;
-                    e->bf = pKFi->mbf;
+                    e->fx = Camera::fx;
+                    e->fy = Camera::fy;
+                    e->cx = Camera::cx;
+                    e->cy = Camera::cy;
+                    e->bf = Camera::bf;
 
                     optimizer.addEdge(e);
                     vpEdgesStereo.push_back(e);
@@ -1056,8 +1053,8 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
     optimizer.setAlgorithm(solver);
 
     // Calibration
-    const cv::Mat &K1 = pKF1->mK;
-    const cv::Mat &K2 = pKF2->mK;
+    const cv::Mat &K1 = Camera::K;
+    const cv::Mat &K2 = Camera::K;
 
     // Camera poses
     const cv::Mat R1w = pKF1->GetRotation();

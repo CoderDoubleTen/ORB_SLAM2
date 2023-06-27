@@ -25,7 +25,10 @@
 #include"Frame.h"
 #include"Map.h"
 
-#include<opencv2/core/core.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include<mutex>
 
 namespace ORB_SLAM2
@@ -35,10 +38,11 @@ class KeyFrame;
 class Map;
 class Frame;
 
-
 class MapPoint
 {
+
 public:
+    MapPoint(const cv::Mat &Pos, int FirstKFid, int FirstFrame, Map* pMap);
     MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap);
     MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
 
@@ -47,6 +51,7 @@ public:
 
     cv::Mat GetNormal();
     KeyFrame* GetReferenceKeyFrame();
+	void SetReferenceKeyFrame(KeyFrame* pRefKF);
 
     std::map<KeyFrame*,size_t> GetObservations();
     int Observations();
@@ -78,8 +83,7 @@ public:
 
     float GetMinDistanceInvariance();
     float GetMaxDistanceInvariance();
-    int PredictScale(const float &currentDist, KeyFrame*pKF);
-    int PredictScale(const float &currentDist, Frame* pF);
+    int PredictScale(const float &currentDist, const float &logScaleFactor);
 
 public:
     long unsigned int mnId;
@@ -105,15 +109,13 @@ public:
     // Variables used by loop closing
     long unsigned int mnLoopPointForKF;
     long unsigned int mnCorrectedByKF;
-    long unsigned int mnCorrectedReference;    
+    long unsigned int mnCorrectedReference;
     cv::Mat mPosGBA;
     long unsigned int mnBAGlobalForKF;
 
-
     static std::mutex mGlobalMutex;
 
-protected:    
-
+protected:
      // Position in absolute coordinates
      cv::Mat mWorldPos;
 

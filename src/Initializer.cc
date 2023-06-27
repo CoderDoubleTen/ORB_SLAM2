@@ -24,6 +24,7 @@
 
 #include "Optimizer.h"
 #include "ORBmatcher.h"
+#include "Camera.h"
 
 #include<thread>
 
@@ -32,7 +33,6 @@ namespace ORB_SLAM2
 
 Initializer::Initializer(const Frame &ReferenceFrame, float sigma, int iterations)
 {
-    mK = ReferenceFrame.mK.clone();
 
     mvKeys1 = ReferenceFrame.mvKeysUn;
 
@@ -113,9 +113,9 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
 
     // Try to reconstruct from homography or fundamental depending on the ratio (0.40-0.45)
     if(RH>0.40)
-        return ReconstructH(vbMatchesInliersH,H,mK,R21,t21,vP3D,vbTriangulated,1.0,50);
-    else //if(pF_HF>0.6)
-        return ReconstructF(vbMatchesInliersF,F,mK,R21,t21,vP3D,vbTriangulated,1.0,50);
+        return ReconstructH(vbMatchesInliersH,H,Camera::K,R21,t21,vP3D,vbTriangulated,1.0,50);
+    else // If(pF_HF>0.6)
+	    return ReconstructF(vbMatchesInliersF,F,Camera::K,R21,t21,vP3D,vbTriangulated,1.0,50);
 
     return false;
 }
@@ -604,13 +604,13 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
     vt.reserve(8);
     vn.reserve(8);
 
-    //n'=[x1 0 x3] 4 posibilities e1=e3=1, e1=1 e3=-1, e1=-1 e3=1, e1=e3=-1
+    // n'=[x1 0 x3] 4 posibilities e1=e3=1, e1=1 e3=-1, e1=-1 e3=1, e1=e3=-1
     float aux1 = sqrt((d1*d1-d2*d2)/(d1*d1-d3*d3));
     float aux3 = sqrt((d2*d2-d3*d3)/(d1*d1-d3*d3));
     float x1[] = {aux1,aux1,-aux1,-aux1};
     float x3[] = {aux3,-aux3,aux3,-aux3};
 
-    //case d'=d2
+    // case d'=d2
     float aux_stheta = sqrt((d1*d1-d2*d2)*(d2*d2-d3*d3))/((d1+d3)*d2);
 
     float ctheta = (d2*d2+d1*d3)/((d1+d3)*d2);
@@ -647,7 +647,7 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
         vn.push_back(n);
     }
 
-    //case d'=-d2
+    // case d'=-d2
     float aux_sphi = sqrt((d1*d1-d2*d2)*(d2*d2-d3*d3))/((d1-d3)*d2);
 
     float cphi = (d1*d3-d2*d2)/((d1-d3)*d2);
@@ -887,10 +887,13 @@ int Initializer::CheckRT(const cv::Mat &R, const cv::Mat &t, const vector<cv::Ke
 
         vCosParallax.push_back(cosParallax);
         vP3D[vMatches12[i].first] = cv::Point3f(p3dC1.at<float>(0),p3dC1.at<float>(1),p3dC1.at<float>(2));
-        nGood++;
+        
 
         if(cosParallax<0.99998)
-            vbGood[vMatches12[i].first]=true;
+				{
+        vbGood[vMatches12[i].first]=true;
+				nGood++;
+				}
     }
 
     if(nGood>0)

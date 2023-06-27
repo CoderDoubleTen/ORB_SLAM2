@@ -18,44 +18,71 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
+/*
+ *--------------------------------------------------------------------------------------------------
+ * DS-SLAM: A Semantic Visual SLAM towards Dynamic Environments
+　*　Author(s):
+ * Chao Yu, Zuxin Liu, Xinjun Liu, Fugui Xie, Yi Yang, Qi Wei, Fei Qiao qiaofei@mail.tsinghua.edu.cn
+ * Created by Yu Chao@2018.12.03
+ * --------------------------------------------------------------------------------------------------
+ * DS-SLAM is a optimized SLAM system based on the famous ORB-SLAM2. If you haven't learn ORB_SLAM2 code, 
+ * you'd better to be familiar with ORB_SLAM2 project first. Compared to ORB_SLAM2, 
+ * we add anther two threads including semantic segmentation thread and densemap creation thread. 
+ * You should pay attention to Frame.cc, ORBmatcher.cc, Pointcloudmapping.cc and Segment.cc.
+ * 
+ *　@article{murORB2,
+ *　title={{ORB-SLAM2}: an Open-Source {SLAM} System for Monocular, Stereo and {RGB-D} Cameras},
+　*　author={Mur-Artal, Ra\'ul and Tard\'os, Juan D.},
+　* journal={IEEE Transactions on Robotics},
+　*　volume={33},
+　* number={5},
+　* pages={1255--1262},
+　* doi = {10.1109/TRO.2017.2705103},
+　* year={2017}
+ *　}
+ * --------------------------------------------------------------------------------------------------
+ * Copyright (C) 2018, iVip Lab @ EE, THU (https://ivip-tsinghua.github.io/iViP-Homepage/) and 
+ * Advanced Mechanism and Roboticized Equipment Lab. All rights reserved.
+ *
+ * Licensed under the GPLv3 License;
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * https://github.com/ivipsourcecode/DS-SLAM/blob/master/LICENSE
+ *--------------------------------------------------------------------------------------------------
+ */
 
 #ifndef TRACKING_H
 #define TRACKING_H
 
-#include<opencv2/core/core.hpp>
-#include<opencv2/features2d/features2d.hpp>
-
-#include"Viewer.h"
-#include"FrameDrawer.h"
-#include"Map.h"
-#include"LocalMapping.h"
-#include"LoopClosing.h"
-#include"Frame.h"
-#include "ORBVocabulary.h"
-#include"KeyFrameDatabase.h"
-#include"ORBextractor.h"
+#include "Frame.h"
+#include "ORBextractor.h"
 #include "Initializer.h"
-#include "MapDrawer.h"
 #include "System.h"
-
+//#include "PangolinViewer.h"
+#include "boost/make_shared.hpp"
+#include <condition_variable>
 #include <mutex>
+
+using std::string;
+
+//class PointCloudMapping;
 
 namespace ORB_SLAM2
 {
 
 class Viewer;
-class FrameDrawer;
 class Map;
 class LocalMapping;
 class LoopClosing;
 class System;
+class Segment;
 
 class Tracking
-{  
+{ 
 
 public:
-    Tracking(System* pSys, ORBVocabulary* pVoc, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Map* pMap,
-             KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor);
+    Tracking(System* pSys, ORBVocabulary* pVoc, Map* pMap, 
+	     KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor);
 
     // Preprocess the input and call Track(). Extract features and performs stereo matching.
     cv::Mat GrabImageStereo(const cv::Mat &imRectLeft,const cv::Mat &imRectRight, const double &timestamp);
@@ -68,17 +95,15 @@ public:
 
     // Load new settings
     // The focal lenght should be similar or scale prediction will fail when projecting points
-    // TODO: Modify MapPoint::PredictScale to take into account focal lenght
     void ChangeCalibration(const string &strSettingPath);
 
     // Use this function if you have deactivated local mapping and you only want to localize the camera.
     void InformOnlyTracking(const bool &flag);
 
-
 public:
-
     // Tracking states
-    enum eTrackingState{
+    enum eTrackingState
+    {
         SYSTEM_NOT_READY=-1,
         NO_IMAGES_YET=0,
         NOT_INITIALIZED=1,
@@ -91,10 +116,15 @@ public:
 
     // Input sensor
     int mSensor;
-
+    double orbExtractTime;
+    double movingDetectTime;
     // Current Frame
     Frame mCurrentFrame;
     cv::Mat mImGray;
+    cv::Mat mImS;
+    cv::Mat mImS_C;
+    cv::Mat mImRGB;// adding for color point map  by zoe
+    cv::Mat mImDepth; // adding mImDepth member to realize pointcloud view
 
     // Initialization Variables (Monocular)
     std::vector<int> mvIniLastMatches;
@@ -114,9 +144,16 @@ public:
     bool mbOnlyTracking;
 
     void Reset();
+    // For the semantic segmentation thread
+    Segment* mpSegment;
+    cv::Mat mImgNew;
+    std::condition_variable mbcvImgNew;
+    void GetImg(const cv::Mat &img);
+    void SetSegment(Segment* segment);
+    bool isNewSegmentImgArrived();
+    bool mbNewSegImgFlag;
 
 protected:
-
     // Main tracking function. It is independent of the input sensor.
     void Track();
 
@@ -150,22 +187,22 @@ protected:
     // "zero-drift" localization to the map.
     bool mbVO;
 
-    //Other Thread Pointers
+    // Other Thread Pointers
     LocalMapping* mpLocalMapper;
     LoopClosing* mpLoopClosing;
 
-    //ORB
+    // ORB
     ORBextractor* mpORBextractorLeft, *mpORBextractorRight;
     ORBextractor* mpIniORBextractor;
 
-    //BoW
+    // BoW
     ORBVocabulary* mpORBVocabulary;
     KeyFrameDatabase* mpKeyFrameDB;
 
     // Initalization (only for monocular)
     Initializer* mpInitializer;
 
-    //Local Map
+    // Local Map
     KeyFrame* mpReferenceKF;
     std::vector<KeyFrame*> mvpLocalKeyFrames;
     std::vector<MapPoint*> mvpLocalMapPoints;
@@ -173,18 +210,12 @@ protected:
     // System
     System* mpSystem;
     
-    //Drawers
+    // Drawers
     Viewer* mpViewer;
-    FrameDrawer* mpFrameDrawer;
-    MapDrawer* mpMapDrawer;
+    //PangolinViewer* mpPangolinViewer;
 
-    //Map
+    // Map
     Map* mpMap;
-
-    //Calibration matrix
-    cv::Mat mK;
-    cv::Mat mDistCoef;
-    float mbf;
 
     //New KeyFrame rules (according to fps)
     int mMinFrames;
@@ -201,19 +232,25 @@ protected:
     //Current matches in frame
     int mnMatchesInliers;
 
-    //Last Frame, KeyFrame and Relocalisation Info
+    // Last Frame, KeyFrame and Relocalisation Info
     KeyFrame* mpLastKeyFrame;
     Frame mLastFrame;
     unsigned int mnLastKeyFrameId;
     unsigned int mnLastRelocFrameId;
 
-    //Motion Model
+    // Motion Model
     cv::Mat mVelocity;
 
-    //Color order (true RGB, false BGR, ignored if grayscale)
+    // Color order (true RGB, false BGR, ignored if grayscale)
     bool mbRGB;
+	
+	// For point cloud viewing
+    //boost::shared_ptr<PointCloudMapping> mpPointCloudMapping;
 
     list<MapPoint*> mlpTemporalPoints;
+private:
+	bool _Track_full();
+	bool _Track_loc_only();
 };
 
 } //namespace ORB_SLAM

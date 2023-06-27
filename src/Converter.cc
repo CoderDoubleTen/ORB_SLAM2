@@ -18,7 +18,6 @@
 * along with ORB-SLAM2. If not, see <http://www.gnu.org/licenses/>.
 */
 
-
 #include "Converter.h"
 
 namespace ORB_SLAM2
@@ -30,7 +29,6 @@ std::vector<cv::Mat> Converter::toDescriptorVector(const cv::Mat &Descriptors)
     vDesc.reserve(Descriptors.rows);
     for (int j=0;j<Descriptors.rows;j++)
         vDesc.push_back(Descriptors.row(j));
-
     return vDesc;
 }
 
@@ -147,5 +145,14 @@ std::vector<float> Converter::toQuaternion(const cv::Mat &M)
 
     return v;
 }
+
+void Converter::RmatOfQuat(cv::Mat &M, const cv::Mat &q) {
+  Eigen::Quaterniond _q(q.at<float>(0,3), q.at<float>(0,0), q.at<float>(0,1), q.at<float>(0,2));
+  Eigen::Matrix<double,3,3> _m = _q.toRotationMatrix();
+  for(int i=0;i<3;i++)
+	for(int j=0; j<3; j++)
+	  M.at<float>(i,j) = _m(i,j);
+}
+
 
 } //namespace ORB_SLAM
