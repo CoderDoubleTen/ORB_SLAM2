@@ -207,20 +207,20 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
 
     cv::Mat  imGrayT = imGray;
     //几何方法进行运动的一致性检测并输出至T矩阵
-    if(imGrayPre.data)
-    {
-        std::chrono::steady_clock::time_point tm1 = std::chrono::steady_clock::now();
-        ProcessMovingObject(imGray);
-        std::chrono::steady_clock::time_point tm2 = std::chrono::steady_clock::now();
-        movingDetectTime= std::chrono::duration_cast<std::chrono::duration<double> >(tm2 - tm1).count();
-        std::swap(imGrayPre, imGrayT);
-    }
-    else
-    {
+//    if(imGrayPre.data)
+//    {
+//        std::chrono::steady_clock::time_point tm1 = std::chrono::steady_clock::now();
+//        ProcessMovingObject(imGray);
+//        std::chrono::steady_clock::time_point tm2 = std::chrono::steady_clock::now();
+//        movingDetectTime= std::chrono::duration_cast<std::chrono::duration<double> >(tm2 - tm1).count();
+//        std::swap(imGrayPre, imGrayT);
+//    }
+//    else
+//    {
         std::swap(imGrayPre, imGrayT);
         flag_mov=0;
-    }
-
+//    }
+//
 }
 
 void Frame::CalculEverything( cv::Mat &imRGB, const cv::Mat &imGray,const cv::Mat &imDepth,const cv::Mat &imS)
@@ -252,12 +252,13 @@ void Frame::CalculEverything( cv::Mat &imRGB, const cv::Mat &imGray,const cv::Ma
         break;
     }
     //去除 人身上的动态点，动态点不为空且存在人
-    if(!T_M.empty() && flagprocess )
+    if(flagprocess )
     {
         std::chrono::steady_clock::time_point tc1 = std::chrono::steady_clock::now();
-        flag_mov = mpORBextractorLeft->CheckMovingKeyPoints(imGray,imS,mvKeysTemp,T_M);
+        flag_mov = mpORBextractorLeft->CheckMovingKeyPoints(imGray,imS,mvKeysTemp);
         std::chrono::steady_clock::time_point tc2 = std::chrono::steady_clock::now();
         double tc= std::chrono::duration_cast<std::chrono::duration<double> >(tc2 - tc1).count();// 光流与语义结合剔除动态点的时间
+        //cheeck time是剔除动态点的时间
         cout << "check time =" << tc*1000 <<  endl;
     }
     //计算静态特征点的描述子
@@ -344,7 +345,8 @@ void Frame::ExtractORBDesp(int flag,const cv::Mat &imgray)
     
 }
 
-// Epipolar constraints and output the T matrix.
+// Epipolar constraints and output the T matrix. //ql 光流法
+//讲解：https://blog.csdn.net/Run_with_you/article/details/120250156
 void Frame::ProcessMovingObject(const cv::Mat &imgray)
 {
     // Clear the previous data

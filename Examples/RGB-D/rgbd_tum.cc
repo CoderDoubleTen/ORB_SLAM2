@@ -35,7 +35,7 @@ void LoadImages(const string &strAssociationFilename, vector<string> &vstrImageF
 
 int main(int argc, char **argv)
 {
-   //测试git  这句话是随便写的  111111111111111111111112222222222222222222223333333333333333333333333333333
+   //测试git  111111111111111111111112222222222222222222223333333333333333333333333333333
     // Retrieve paths to images
     vector<string> vstrImageFilenamesRGB;
     vector<string> vstrImageFilenamesD;

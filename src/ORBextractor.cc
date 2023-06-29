@@ -1059,41 +1059,41 @@ void ORBextractor::DeleteOneRowOfMat(cv::Mat& object, int num)
     }
 }
 
-int ORBextractor::CheckMovingKeyPoints( const cv::Mat &imGray, const cv::Mat &imS,std::vector<std::vector<cv::KeyPoint>>& mvKeysT,std::vector<cv::Point2f> T)
+int ORBextractor::CheckMovingKeyPoints( const cv::Mat &imGray, const cv::Mat &imS,std::vector<std::vector<cv::KeyPoint>>& mvKeysT)
 {
    
     float scale;
-    int flag_orb_mov =0;
+    int flag_orb_mov =1;
    
     // Make further judgment
     //检查剔除区域（T_M集中每个像素点及周围15像素）
     // 在T_M 离群点的 15*15 的像素块内发现 人，那么flag_orb_mov 设置为1.
-	for (int i = 0; i < T.size(); i++)
-	{
-	    for(int m = -15; m < 15; m++)
-	    {
-	        for(int n = -15; n < 15; n++)
-	        {
-                //  确定 mx ,my 的范围不能出界
-	            int my = ((int)T[i].y + n) ;
-	            int mx = ((int)T[i].x + m) ;
-		        if( ((int)T[i].y + n) > (Camera::height -1) ) my = (Camera::height - 1) ;
-	        	if( ((int)T[i].y + n) < 1 ) my = 0;
-		        if( ((int)T[i].x + m) > (Camera::width -1) ) mx = (Camera::width - 1) ;
-		        if( ((int)T[i].x + m) < 1 ) mx = 0;
-                // The label of peopel is 1
-		        if((int)imS.ptr<uchar>(my)[mx] == PEOPLE_LABLE)
-		        {
-		            flag_orb_mov=1;
-		               break;
-		        }
-	        }
-	            if(flag_orb_mov==1)
-	                 break;
-	     }
-	         if(flag_orb_mov==1)
-	            break;
-	}
+//	for (int i = 0; i < T.size(); i++)
+//	{
+//	    for(int m = -15; m < 15; m++)
+//	    {
+//	        for(int n = -15; n < 15; n++)
+//	        {
+//                //  确定 mx ,my 的范围不能出界
+//	            int my = ((int)T[i].y + n) ;
+//	            int mx = ((int)T[i].x + m) ;
+//		        if( ((int)T[i].y + n) > (Camera::height -1) ) my = (Camera::height - 1) ;
+//	        	if( ((int)T[i].y + n) < 1 ) my = 0;
+//		        if( ((int)T[i].x + m) > (Camera::width -1) ) mx = (Camera::width - 1) ;
+//		        if( ((int)T[i].x + m) < 1 ) mx = 0;
+//                // The label of peopel is 1
+//		        if((int)imS.ptr<uchar>(my)[mx] == PEOPLE_LABLE)
+//		        {
+//		            flag_orb_mov=1;
+//		               break;
+//		        }
+//	        }
+//	            if(flag_orb_mov==1)
+//	                 break;
+//	     }
+//	         if(flag_orb_mov==1)
+//	            break;
+//	}
 
 	// Moving
 	if(flag_orb_mov==1)

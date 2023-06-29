@@ -125,7 +125,7 @@ public:
     }
 
     std::vector<cv::Mat> mvImagePyramid;
-    int CheckMovingKeyPoints(const cv::Mat &imGray, const cv::Mat &imS,std::vector<std::vector<cv::KeyPoint>>& mvKeysT,std::vector<cv::Point2f> T);
+    int CheckMovingKeyPoints(const cv::Mat &imGray, const cv::Mat &imS,std::vector<std::vector<cv::KeyPoint>>& mvKeysT);
     void DeleteOneRowOfMat(cv::Mat& object, int num);
 
 protected:
